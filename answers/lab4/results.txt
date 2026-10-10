@@ -159,9 +159,16 @@
 │ calebrussell     │ 2020-01-31  │ 2020-02-03 │            3 │
 │ dayderek         │ 2020-02-03  │ 2020-02-05 │            2 │
 │ howelljohn       │ 2020-02-05  │ 2020-02-06 │            1 │
-│   ·              │     ·       │     ·      │            · │
-│   ·              │     ·       │     ·      │            · │
-│   ·              │     ·       │     ·      │            · │
+│ hoganashlee      │ 2020-02-06  │ 2020-02-11 │            5 │
+│ karenhudson      │ 2020-02-11  │ 2020-02-15 │            4 │
+│ elizabeth57      │ 2020-02-15  │ 2020-02-19 │            4 │
+│ danamullins      │ 2020-02-19  │ 2020-02-22 │            3 │
+│ yobrien          │ 2020-02-22  │ 2020-02-26 │            4 │
+│ ronaldstephens   │ 2020-02-26  │ 2020-02-29 │            3 │
+│ cstone           │ 2020-02-29  │ 2020-03-02 │            2 │
+│ ahancock         │ 2020-03-02  │ 2020-03-06 │            4 │
+│ pvalentine       │ 2020-03-06  │ 2020-03-10 │            4 │
+│ cgrimes          │ 2020-03-10  │ 2020-03-13 │            3 │
 │ jsmith           │ 2020-03-13  │ 2020-03-17 │            4 │
 │ charleslandry    │ 2020-03-17  │ 2020-03-19 │            2 │
 │ heatherberger    │ 2020-03-17  │ 2020-03-17 │            0 │
@@ -183,7 +190,7 @@
 │ karen73          │ 2020-04-22  │ 2020-04-25 │            3 │
 │ mariahdavis      │ 2020-04-25  │ 2020-04-27 │            2 │
 └──────────────────┴─────────────┴────────────┴──────────────┘
-  50 rows (40 shown)                               4 columns
+  50 rows                                          4 columns
 ┌───────┬──────────┐
 │ hour  │ quantity │
 │ int64 │  int128  │
@@ -246,9 +253,11 @@
 │ gilbertwilliam   │ Donna Newman            │
 │ hhoffman         │ Deborah Figueroa        │
 │ hoganashlee      │ Patricia Jefferson      │
-│      ·           │       ·                 │
-│      ·           │       ·                 │
-│      ·           │       ·                 │
+│ howelljohn       │ Tiffany Gonzalez        │
+│ ithomas          │ Jonathan Wilkerson      │
+│ jessica23        │ Cheyenne Parsons        │
+│ jsmith           │ Shane Alexander         │
+│ karen73          │ Nathan Montes           │
 │ karenhudson      │ Angelica Keith          │
 │ lozanojulie      │ Keith Jennings          │
 │ lucasrodney      │ Sandra Rodgers          │
@@ -270,4 +279,4 @@
 │ wrightjames      │ Monica Mcbride          │
 │ yobrien          │ David Grant             │
 └──────────────────┴─────────────────────────┘
-  45 rows (40 shown)               2 columns
+  45 rows                          2 columns

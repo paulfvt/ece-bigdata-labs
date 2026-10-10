@@ -44,4 +44,14 @@ Each row group would contain dates from the whole period, so its min and max wou
 
 ## Q11. Compare the execution time of the CSV and Parquet queries. Which part of the difference is due to the network, which part to the parsing of the CSV file?
 
-Network: the CSV query downloads the whole file, while the Parquet query downloads only the footer and 2 compressed columns (hundreds of KB). Parsing: the CSV is text, so every line must be split and every value converted to a type, even for the columns we do not use; Parquet is binary and already typed. To separate the two, we can run the CSV query on a local copy of the file: the remaining time is the parsing, and the difference with the S3 query is the network.
+My results (`scale_results.txt`), for the same query (`sum(quantity)` per product):
+
+- CSV: 28.2 MiB downloaded, 1.15 s
+- Parquet: 203.5 KiB downloaded, 0.358 s
+
+Parquet is about 3 times faster and downloads about 140 times less data.
+
+- Network: DuckDB downloads the whole CSV file, even if the query uses only 2 columns. With Parquet, it only downloads the footer and the 2 columns it needs, and they are compressed.
+- Parsing: CSV is text. DuckDB must cut every line and convert every value to a number or a date. Parquet is binary and already typed, so there is almost nothing to convert.
+
+My measures do not split the 2 parts. To do it, I can run the CSV query on a local copy of the file: this time is the parsing only, and the rest of the 1.15 s is the network.
