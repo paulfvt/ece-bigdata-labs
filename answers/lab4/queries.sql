@@ -1,5 +1,5 @@
 -- Lab 4 – SQL analytics with DuckDB
--- Run with: duckdb analytics.duckdb -init init.sql, then .read answers/lab4_queries.sql
+-- Run with: duckdb analytics.duckdb -init init.sql, then .read answers/lab4/queries.sql
 
 -- Query the bronze layer
 SELECT uuid, username, name, birthdate
