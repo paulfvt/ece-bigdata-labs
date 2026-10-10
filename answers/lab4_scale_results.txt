@@ -1,0 +1,12 @@
+FROM read_csv(getvariable('bucket') || '/large/orders.csv', strict_mode=false) SELECT product, sum(quantity) GROUP BY product
+││            in: 28.2 MiB           ││
+││              #GET: 1              ││
+││               Total Time: 1.15s              ││
+FROM read_parquet(getvariable('bucket') || '/large/orders.parquet') SELECT product, sum(quantity) GROUP BY product
+││           in: 203.5 KiB           ││
+││              #GET: 4              ││
+││              Total Time: 0.358s              ││
+FROM read_parquet(getvariable('bucket') || '/large/orders.parquet') SELECT count(*) WHERE date >= '2100-01-01'
+││            in: 16.0 KiB           ││
+││              #GET: 1              ││
+││              Total Time: 0.233s              ││
