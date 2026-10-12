@@ -66,11 +66,13 @@ When the result needs all the values of a key together, and cannot be built by c
 
 ### Q11. What plays the role of `partitionBy()` here?
 
-_TODO_
+Here `reduceByKey` plays this role. Its shuffle sends all the orders with the same `order_id` to the same partition, like `PARTITION BY order_id`. Then `most_recent` compares them two by two and keeps the newest one, like `ORDER BY ... DESC` + `row_number() = 1`. Result: `2829 2829`, because the generator makes no duplicates.
+
+Note: `date` is a string, not a timestamp. The `>` comparison works only because the dates use the ISO format (`2020-01-01 00:02:17...+00:00`) with the same time zone, so alphabetical order = time order. With another format or mixed time zones, the result would be wrong without any error.
 
 ### Q12. Which version states the intent more directly: the window function, or `reduceByKey` with a custom combiner?
 
-_TODO_
+The window function is clearer. `row_number() OVER (PARTITION BY order_id ORDER BY ordered_at DESC) = 1` says directly "keep the newest row of each order". With `reduceByKey`, I must write a custom function, build key-value pairs and take `.values()`, and the reader must understand the code to see the goal. Also Spark cannot optimize my Python function.
 
 ## Joining orders with users
 
