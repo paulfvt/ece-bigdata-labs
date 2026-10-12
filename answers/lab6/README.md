@@ -54,11 +54,13 @@ In the DataFrame API, the CSV reader does this work. It understands the CSV form
 
 ### Q9. What does `groupByKey` shuffle instead of `reduceByKey`, and why is that more expensive?
 
-_TODO_
+Both give the same result (for example `('ce9e1a11-...', 253)`), and both jobs have 2 stages, because a shuffle is needed: all the values of one `user_id` must go to the same partition.
+
+`reduceByKey` first adds the quantities inside each partition, then it shuffles only one value per user and per partition (here max 50 pairs per partition). `groupByKey` shuffles all the pairs (here the 2829 pairs), and the sum is done only after. So more data goes on the network and on disk, and one executor must keep all the values of a key in memory. In the Spark UI, Shuffle Write was <X> for `reduceByKey` and <Y> for `groupByKey`.
 
 ### Q10. For which aggregations would `groupByKey` be unavoidable?
 
-_TODO_
+When the result needs all the values of a key together, and cannot be built by combining two values at a time. For example: the median quantity per user, the full sorted list of orders of each user, or the most common product of each user.
 
 ## Manual deduplication
 
