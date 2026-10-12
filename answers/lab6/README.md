@@ -18,11 +18,13 @@ My files are very small (330 KB and 7 KB). One HDFS block is 128 MB, so if Spark
 
 ### Q3. Call `orders_data.count()` a second time. Does the Spark UI show a new stage? Why?
 
-_TODO_
+`toDebugString()` shows the lineage: `HadoopRDD` (read the file) → `MapPartitionsRDD` (text lines) → `PythonRDD` (my filter), with 2 partitions. Nothing is computed at this point. `count()` returns 2829 lines.
+
+Yes. Each time I call `count()`, the Spark UI shows a new job with its stage and 2 tasks. Spark does not keep the result of the first count. A transformation is only a plan, so for each action Spark reads the file again and runs the filter again.
 
 ### Q4. At which point in this notebook would `.cache()` change that answer?
 
-_TODO_
+I must call `orders_data.cache()` before the first action, for example just after the `filter` line. `cache()` is lazy too: the first `count()` computes the data and keeps it in memory. The second `count()` still creates a new job, but it reads the partitions from memory, not from the file. I can see the cached RDD in the Storage tab. If I call `cache()` after the counts, nothing changes until the next action.
 
 ## The cost of no schema: the multiline address
 
