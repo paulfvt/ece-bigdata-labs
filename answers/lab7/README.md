@@ -110,7 +110,24 @@ Rule: first use the built-in functions of `pyspark.sql.functions`; if a UDF is r
 
 ### E3. Cache the bronze DataFrames and check the Spark UI
 
-_TODO_
+```python
+users_bronze.cache()
+orders_bronze.cache()
+```
+
+Time for `stg_users.count()` + `stg_orders.count()`:
+
+| Run | Time |
+|---|---|
+| no cache #1 | 1.13 s |
+| no cache #2 | 0.64 s |
+| cache fill (first action after `cache()`) | 0.84 s |
+| cache #1 | 0.48 s |
+| cache #2 | 0.48 s |
+
+Without cache, each action reads the CSV from S3 again. The plan shows that `orders.csv` is even read **twice** per action: one `FileScan csv` for each side of the `Union` (all orders + the `limit(3)` duplicates). With the cache, both become `InMemoryTableScan` over an `InMemoryRelation`, and the time goes down by about 25%. The `FileScan` stays under the `InMemoryRelation`: it is the recipe to rebuild the cache if a partition is lost. The default level for a DataFrame is `MEMORY_AND_DISK` (for an RDD, `cache()` is `MEMORY_ONLY`). The Storage tab of the Spark UI shows the two cached DataFrames after the first action.
+
+Trap: `stg_orders.explain()` still showed `FileScan csv` after `cache()`, because `stg_orders` had already computed its plan before the cache and `explain()` shows this old plan. A new query (`stg_orders.select("*").explain()`, or the `count()`) builds a new plan and uses the cache.
 
 ### E4. Append to the Iceberg table, snapshots, `VERSION AS OF`, compare with Parquet
 
