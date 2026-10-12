@@ -131,4 +131,25 @@ Trap: `stg_orders.explain()` still showed `FileScan csv` after `cache()`, becaus
 
 ### E4. Append to the Iceberg table, snapshots, `VERSION AS OF`, compare with Parquet
 
-_TODO_
+```python
+before_id = spark.sql("SELECT snapshot_id FROM lab.silver.orders.snapshots ORDER BY committed_at DESC LIMIT 1").first()[0]
+new_order.writeTo("lab.silver.orders").append()
+spark.sql(f"SELECT count(*) FROM lab.silver.orders VERSION AS OF {before_id}")
+new_order.write.mode("append").parquet(f"s3a://{BUCKET}/silver/spark/orders.parquet")
+```
+
+`new_order` is one order made with `spark.createDataFrame(..., schema=stg_orders.schema)`, so the types are the same as the table (`quantity` stays `int`).
+
+| | Before | After append | Old version |
+|---|---|---|---|
+| Iceberg `lab.silver.orders` | 2829 | 2830 | 2829 with `VERSION AS OF 4870172577030688146` |
+| Parquet directory | 2829 | 2830 | not possible |
+
+Snapshots after the append:
+
+| snapshot_id | parent_id | operation |
+|---|---|---|
+| 4870172577030688146 | NULL | overwrite |
+| 7610126210941041453 | 4870172577030688146 | append |
+
+Iceberg does not change old files: the append writes a new data file, a new manifest, a new snapshot and a `v2.metadata.json`, then moves the pointer. The old snapshot still lists the old files, so I can read the table as it was (time travel), like a Git history (`parent_id`). With a plain Parquet directory, the append only adds one more `part-` file in the folder. There is no version and no history: after the append, the old state is gone, and a reader during the write could see a partial result.
