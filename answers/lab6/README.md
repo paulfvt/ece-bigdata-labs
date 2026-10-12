@@ -94,7 +94,20 @@ To skip the shuffle, the two RDDs must already be partitioned in the same way: s
 
 ### E1. `user_quantity` with `aggregateByKey`, then the average order quantity per user
 
-_TODO_
+```python
+pairs = orders_rdd.map(lambda o: (o["user_id"], o["quantity"]))
+
+user_stats = pairs.aggregateByKey(
+    (0, 0),                                    # start: (order_count, total_quantity)
+    lambda acc, q: (acc[0] + 1, acc[1] + q),   # inside one partition: add one order
+    lambda a, b: (a[0] + b[0], a[1] + b[1]),   # after the shuffle: merge two partitions
+)
+user_avg = user_stats.mapValues(lambda acc: round(acc[1] / acc[0], 2))
+```
+
+Results (first 3 users): `(4, 12)` → 3.0, `(12, 40)` → 3.33, `(85, 253)` → 2.98. The totals are the same as with `reduceByKey`.
+
+`reduceByKey` needs the same type in and out (quantity + quantity). Here the input is a quantity but the result is a pair `(count, total)`, so I use `aggregateByKey`. Like `reduceByKey`, it combines inside each partition before the shuffle, so only one pair per user and per partition goes on the network. I divide only at the end: an average of partial averages would be wrong.
 
 ### E2. Fake `user_id`, `leftOuterJoin()`, count the orders with no matching user
 
