@@ -14,21 +14,21 @@ Onyxia gives temporary STS credentials: access key + secret key + session token.
 
 ## Bronze layer
 
-_TODO_
+Read directly from S3 with `s3a://`, with `header=True, inferSchema=True, multiLine=True`. Result: 50 users and 2829 orders. With `sc.textFile()` in lab 6 I had 101 elements for users, because each address has a line break. Here `multiLine=True` keeps each user in one row, with all 7 columns. `inferSchema` gives `birthdate` the `date` type; `uuid` stays a `string` (Spark has no UUID type).
 
 ## Silver layer
 
 ### Q3. Explain the output of the code that was just run.
 
-_TODO_
+The query counts the users per state and the users with no city. The 6 users with no city are only on military codes: AE (3 of 3), AP (2 of 2), and one more lower in the list (probably AA). These are US Army addresses like `DPO AP 09617`: they have no city, so the city regex finds nothing. All real states have `missing_city = 0`, so the address parsing works. Also, `state` is not only US states: FM and VI are territories. And with only 50 users many states have 2 users, so the order between equal rows is not fixed and can change between runs.
 
 ### Q4. Compare the DataFrame and SQL cells. Which one for a one-off exploration, and which for a model reused by several colleagues? Why?
 
-_TODO_
+Both give the same Catalyst plan, so the speed is the same. For a one-off exploration I would use SQL: it is quick to write and easy to read, also for analysts. For a model reused by colleagues I would use the DataFrame API: I can put the steps in Python functions with parameters, reuse them, test them with unit tests and keep them in Git like normal code. Typos in column names are also found earlier. But a SQL model in a tool like dbt is also a good choice for a shared model.
 
 ### Q5. `regexp_extract()` returned an empty string instead of `NULL` on no match. Where else could that same behavior silently produce a wrong result?
 
-_TODO_
+The same problem is on `state` and `zip_code`: if the second address line is missing or has another format, `regexp_extract()` gives `""`, not `NULL`. Then `""` is counted as one more state in a `groupBy`, and a `not_null` test does not see it. The same can happen with `F.trim()`: a value with only spaces becomes `""`, not `NULL` (for `username`, `name`, `email`, `sex`). The fix is the same: change `""` into `NULL` with `F.when(... == "", None)` or `F.nullif`.
 
 ## Write the silver layer as Parquet
 
