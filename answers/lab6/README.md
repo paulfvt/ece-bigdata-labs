@@ -44,11 +44,11 @@ Workaround of the lab: keep only lines starting with a UUID, so `users_records.c
 
 ### Q7. What would happen to this cell if one line in `orders.csv` had an extra comma inside `product`?
 
-_TODO_
+With one more comma, `split(",")` gives 6 values instead of 5, so the line `order_id, user_id, date, quantity, product = ...` raises `ValueError: too many values to unpack`. But not when I write the `map`: it is a lazy transformation. The error comes at the first action that reads this line, in the Python worker of an executor, and the whole job fails. A `take(3)` can even work if the bad line is later in the file. Also, `date` stays a string: nothing checks its format, and a bad `quantity` would also fail only at the action.
 
 ### Q8. Where does the DataFrame API perform the equivalent check, and when?
 
-_TODO_
+In the DataFrame API, the CSV reader does this work. It understands the CSV format (quotes, header), so a comma inside quotes is not a problem. The check is done when the file is parsed against the schema (inferred or given with `StructType`), when an action runs (with `inferSchema=True`, Spark also reads the file once when I call `spark.read.csv`). A bad value does not crash the job by default: with `mode="PERMISSIVE"` it becomes `null`. I can choose `DROPMALFORMED` to drop the line, or `FAILFAST` to stop with an error.
 
 ## Key-value RDDs: total quantity per user
 
