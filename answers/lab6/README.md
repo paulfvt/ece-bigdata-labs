@@ -144,4 +144,25 @@ Same totals as the RDD version. The DataFrame version is 2 lines and no parsing 
 
 ### E4. Timing with and without `.cache()`, Storage tab of the Spark UI
 
-_TODO_
+```python
+def timed(label, action):
+    t0 = time.perf_counter()
+    result = action()
+    print(f"{label:<28} -> {result:>5}  {time.perf_counter() - t0:.3f} s")
+
+# with cache, then orders_rdd.unpersist() + orders_data.unpersist()
+# and rebuild without .cache(): orders_rdd_nc = orders_data.map(parse_order)
+```
+
+| Run | `orders_rdd.count` | `user_quantity.count` |
+|---|---|---|
+| cache, run 1 | 0.588 s | 0.209 s |
+| cache, run 2 | 0.149 s | 0.234 s |
+| no cache, run 1 | 0.153 s | 0.349 s |
+| no cache, run 2 | 0.047 s | 0.164 s |
+
+In the Storage tab, the two cached RDDs (about 162 KiB and 168 KiB) are visible before `unpersist()`, and the tab is empty after.
+
+The cache does not make a clear difference here. The file is very small (330 KB) and already in the OS memory, so reading it again costs almost nothing. The times I measure are mostly the fixed cost of a job (scheduling, tasks, Python worker), and they change a lot between runs. The first runs are slower (cold start). Also, Spark reuses the shuffle files: the second `user_quantity_nc.count()` is faster because its first stage is "skipped" in the Jobs tab, even without `.cache()`.
+
+So `.cache()` is useful when the data is big or the chain before it is expensive (big files, heavy parsing, shuffles) and the RDD is used many times. On a tiny dataset, the effect is hidden by the noise.
