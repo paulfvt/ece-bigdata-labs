@@ -20,7 +20,7 @@ Read directly from S3 with `s3a://`, with `header=True, inferSchema=True, multiL
 
 ### Q3. Explain the output of the code that was just run.
 
-The query counts the users per state and the users with no city. The 6 users with no city are only on military codes: AE (3 of 3), AP (2 of 2), and one more lower in the list (probably AA). These are US Army addresses like `DPO AP 09617`: they have no city, so the city regex finds nothing. All real states have `missing_city = 0`, so the address parsing works. Also, `state` is not only US states: FM and VI are territories. And with only 50 users many states have 2 users, so the order between equal rows is not fixed and can change between runs.
+The query counts the users per state and the users with no city. The 6 users with no city are only on military codes: AE (3 of 3), AP (2 of 2), and one more lower in the list (not shown in the top 10). These are US Army addresses like `DPO AP 09617`: they have no city, so the city regex finds nothing. All real states have `missing_city = 0`, so the address parsing works. Also, `state` is not only US states: FM and VI are territories. And with only 50 users many states have 2 users, so the order between equal rows is not fixed and can change between runs.
 
 ### Q4. Compare the DataFrame and SQL cells. Which one for a one-off exploration, and which for a model reused by several colleagues? Why?
 
@@ -125,7 +125,7 @@ Time for `stg_users.count()` + `stg_orders.count()`:
 | cache #1 | 0.48 s |
 | cache #2 | 0.48 s |
 
-Without cache, each action reads the CSV from S3 again. The plan shows that `orders.csv` is even read **twice** per action: one `FileScan csv` for each side of the `Union` (all orders + the `limit(3)` duplicates). With the cache, both become `InMemoryTableScan` over an `InMemoryRelation`, and the time goes down by about 25%. The `FileScan` stays under the `InMemoryRelation`: it is the recipe to rebuild the cache if a partition is lost. The default level for a DataFrame is `MEMORY_AND_DISK` (for an RDD, `cache()` is `MEMORY_ONLY`). The Storage tab of the Spark UI shows the two cached DataFrames after the first action.
+Without cache, each action reads the CSV from S3 again. The plan shows that `orders.csv` is even read **twice** per action: one `FileScan csv` for each side of the `Union` (all orders + the `limit(3)` duplicates). With the cache, both become `InMemoryTableScan` over an `InMemoryRelation`, and the time goes down from 0.64 s to 0.48 s (about 25%, compared with the second run without cache; the first run at 1.13 s also includes the start-up cost). The `FileScan` stays under the `InMemoryRelation`: it is the recipe to rebuild the cache if a partition is lost. The default level for a DataFrame is `MEMORY_AND_DISK` (for an RDD, `cache()` is `MEMORY_ONLY`). The Storage tab of the Spark UI shows the two cached DataFrames after the first action.
 
 Trap: `stg_orders.explain()` still showed `FileScan csv` after `cache()`, because `stg_orders` had already computed its plan before the cache and `explain()` shows this old plan. A new query (`stg_orders.select("*").explain()`, or the `count()`) builds a new plan and uses the cache.
 
