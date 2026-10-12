@@ -78,15 +78,17 @@ The window function is clearer. `row_number() OVER (PARTITION BY order_id ORDER 
 
 ### Q13. What would need to be true of how `orders_kv` and `users_kv` are partitioned for Spark to skip the shuffle?
 
-_TODO_
+Result: `enriched.count()` = 2829, the same as the number of orders. Each element is `(user_id, (order, username))`. All orders found their user, and no order was duplicated because `users_kv` has only one line per `user_id`.
+
+To skip the shuffle, the two RDDs must already be partitioned in the same way: same key (`user_id`), same partitioner and same number of partitions, for example both with `.partitionBy(8)` before the join (and cached, so this is not done again). Then the rows with the same key are already in the same partition, and the join becomes a narrow transformation. If only one RDD is partitioned like this, Spark shuffles only the other one.
 
 ### Q14. Replace `join()` with `leftOuterJoin()`. What changes if a `user_id` in `orders` has no matching user?
 
-_TODO_
+`join()` is an inner join: an order with an unknown `user_id` disappears from the result. With `leftOuterJoin()`, the order stays, and the user side is `None`: `(user_id, (order, None))`. Here nothing changes (still 2829), because all the orders have a user. `leftOuterJoin()` is useful to find these orphan orders, with a filter on `None`.
 
 ### Q15. What is the risk of calling `.collect()` on `enriched` directly, on a much larger dataset?
 
-_TODO_
+`collect()` sends all the rows of all the partitions to the driver, into one Python list. On a big dataset this does not fit in the driver memory, so the driver crashes (out of memory). A join can also make more rows than the inputs, if a key is not unique. It is better to filter or aggregate first, and to use `take(n)`, `count()`, or write the result to storage.
 
 ## Exercises
 
