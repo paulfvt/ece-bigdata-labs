@@ -44,15 +44,23 @@ With `coalesce(1)`, all the data goes into one partition, so only one task write
 
 ### Q8. Compare `silver/spark/orders.parquet/` and `warehouse/silver/orders/`. Which files hold the data, and which ones describe the table?
 
-_TODO_
+In `silver/spark/orders.parquet/` there are only data files (`part-00000-...snappy.parquet`) and `_SUCCESS`. Nothing says which files are the table or which version I read: a reader just lists the directory.
+
+In `warehouse/silver/orders/`, the data is in `data/` (one Parquet file, 84 KB, zstd compression by default in Iceberg vs 139 KB with Snappy). The table is described by `metadata/`, which is a chain of pointers:
+`version-hint.text` (contains `1`) → `v1.metadata.json` (schema, partition spec, list of snapshots, current snapshot id) → `snap-<id>-....avro` (manifest list of the snapshot) → `...-m0.avro` (manifest: list of data files with row counts and min/max stats per column) → `data/*.parquet`.
+The tables `lab.silver.orders.snapshots` and `.files` show the same information in SQL: 1 snapshot, 1 data file with 2829 records.
 
 ### Q9. A second job overwrites the Parquet directory while a query is reading it. What does the reader see? What changes with an Iceberg table?
 
-_TODO_
+With a plain Parquet directory, the overwrite deletes old files and writes new ones in the same place, and there is no transaction. A reader that lists the directory during this time can see a mix of old and new files, miss files that are already deleted (error "file not found"), or read files that are only half written. So the result can be wrong or the query can fail.
+
+With Iceberg, the writer writes new data files and new metadata files, and the change becomes visible only at the commit, when the pointer moves to the new version (atomic commit). A reader keeps the snapshot it opened at the start, so it sees the old table complete, or the new table complete, never a mix. Old snapshots stay until they are expired, so I can also read an old version (time travel).
 
 ### Q10. With this catalog, the pointer to the current version of a table is a file in the bucket. What can go wrong if two jobs commit at the same time, and what would a catalog service add?
 
-_TODO_
+With the `hadoop` catalog, a commit means writing a new `vN.metadata.json` and updating `version-hint.text`. Object storage like S3 has no atomic rename and no lock. If two jobs commit at the same time, both can start from version 1 and both write version 2: one commit overwrites the other, and its changes are lost without any error (or the table can become inconsistent).
+
+A catalog service (REST catalog, Apache Polaris, Nessie, Hive Metastore, AWS Glue) keeps the pointer to the current metadata file and changes it with an atomic "compare and swap": the second job sees that the version changed, its commit fails, and it retries on top of the new version. It also gives one central place to find tables, with access control.
 
 ## Compare with the dbt lab
 
