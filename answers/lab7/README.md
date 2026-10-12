@@ -70,7 +70,27 @@ _Pending: the dbt lab (module 05) is not done yet, so `silver/dbt/` does not exi
 
 ### E1. `birthdate_is_valid`, with the DataFrame API and with Spark SQL
 
-_TODO_
+```python
+first_orders = stg_orders.groupBy("user_id").agg(F.min("ordered_at").alias("first_order_at"))
+users_checked_df = (stg_users.join(first_orders, on="user_id", how="left")
+    .withColumn("birthdate_is_valid",
+                F.coalesce(F.col("birthdate") <= F.to_date("first_order_at"), F.lit(True))))
+```
+
+```sql
+WITH first_orders AS (
+    SELECT user_id, min(ordered_at) AS first_order_at FROM stg_orders GROUP BY user_id
+)
+SELECT u.*, f.first_order_at,
+       coalesce(u.birthdate <= to_date(f.first_order_at), true) AS birthdate_is_valid
+FROM stg_users u LEFT JOIN first_orders f ON u.user_id = f.user_id
+```
+
+The two versions give the same result: `exceptAll` in both directions returns 0 rows. Result: 45 users valid, 5 not valid (`nicolejohnson`, `dayderek`, `ronaldstephens`, `cgrimes`, `charleslandry`), born between 2022 and 2026 while their first order is in 2020.
+
+Choices: I use a left join to keep users with no order; for them `first_order_at` is NULL and the comparison gives NULL, so I use `coalesce(..., true)` (no order = no proof that the date is wrong). I compare dates with `to_date()` because `birthdate` is a date and `ordered_at` a timestamp.
+
+Compared with the dbt lab: the singular test `assert_orders_after_user_birth` failed on the orders (one row per bad order) and stopped the pipeline unless `severity: warn`. Here I keep all the rows and add a flag column per user, so the consumers can filter. The cause is the same: Faker makes birthdates relative to today, but the orders are in 2020. The source is wrong, so I do not change Bronze, I only flag it in Silver.
 
 ### E2. `zip_code` with a Python UDF, a `pandas_udf` and `regexp_extract()`, timed
 
