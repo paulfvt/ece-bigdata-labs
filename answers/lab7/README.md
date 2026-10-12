@@ -34,11 +34,11 @@ The same problem is on `state` and `zip_code`: if the second address line is mis
 
 ### Q6. List the objects written under `silver/spark/users.parquet/`. How many part-files are there, and why?
 
-_TODO_
+Each directory has only one part-file (`part-00000-...snappy.parquet`), plus a `_SUCCESS` file and a 0-byte directory marker. Spark writes one file per partition of the DataFrame, and here each DataFrame has only 1 partition (`getNumPartitions()` = 1). `stg_users` comes from a 7 KB file, smaller than `spark.sql.files.maxPartitionBytes` (128 MB), so it is read in 1 partition. `stg_orders` has a shuffle (the window `partitionBy`), which makes 200 partitions by default, but AQE merges them into 1 because the data is very small. The files use Snappy compression: `orders` is 139 KB in Parquet vs 331 KB in CSV. `_SUCCESS` is written at the end, to show that the write is complete.
 
 ### Q7. `coalesce(1)` before `.write` would produce a single file. What do you lose by doing that on a larger dataset?
 
-_TODO_
+With `coalesce(1)`, all the data goes into one partition, so only one task writes the file, on one executor. On a big dataset this is slow (no parallel writing), this one executor can run out of memory or disk, and the next job that reads the file can only start with few tasks too, because one big file is harder to split. Also, `coalesce(1)` can push the work before it (the transformations) into fewer tasks. It is better to keep many files of a good size (around 128 MB to 1 GB each), or use `repartition(n)` with a sensible `n`.
 
 ## Write the silver layer as Iceberg tables
 
