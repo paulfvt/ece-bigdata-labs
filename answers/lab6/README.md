@@ -111,7 +111,20 @@ Results (first 3 users): `(4, 12)` → 3.0, `(12, 40)` → 3.33, `(85, 253)` →
 
 ### E2. Fake `user_id`, `leftOuterJoin()`, count the orders with no matching user
 
-_TODO_
+```python
+fake_order = {"order_id": "00000000-0000-0000-0000-000000000001",
+              "user_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+              "date": "2020-06-01 12:00:00.000000+00:00", "quantity": 3, "product": "bread"}
+
+orders_with_fake = orders_rdd.union(sc.parallelize([fake_order]))   # 2830
+joined = orders_with_fake.map(lambda o: (o["user_id"], o)).leftOuterJoin(users_kv)
+orphans = joined.filter(lambda kv: kv[1][1] is None)                # kv = (user_id, (order, username))
+orphans.count()                                                     # 1
+```
+
+Results: 2830 orders with the fake one, 1 orphan order with `leftOuterJoin` (the username is `None`), and 2829 with a normal `join`.
+
+An RDD is immutable, so I do not change `orders_rdd`: I make a new RDD with `union`, which is narrow (no shuffle). The normal `join` removes the orphan order without any error, so I can lose data without seeing it. `leftOuterJoin` + filter on `None` finds it. This is the same check as the dbt test `assert_orders_have_users` (`LEFT JOIN ... WHERE u.user_id IS NULL`).
 
 ### E3. Same aggregation with the DataFrame API, compare `.explain()` and `.toDebugString()`
 
