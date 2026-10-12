@@ -56,7 +56,7 @@ In the DataFrame API, the CSV reader does this work. It understands the CSV form
 
 Both give the same result (for example `('ce9e1a11-...', 253)`), and both jobs have 2 stages, because a shuffle is needed: all the values of one `user_id` must go to the same partition.
 
-`reduceByKey` first adds the quantities inside each partition, then it shuffles only one value per user and per partition (here max 50 pairs per partition). `groupByKey` shuffles all the pairs (here the 2829 pairs), and the sum is done only after. So more data goes on the network and on disk, and one executor must keep all the values of a key in memory. In the Spark UI, Shuffle Write was <X> for `reduceByKey` and <Y> for `groupByKey`.
+`reduceByKey` first adds the quantities inside each partition, then it shuffles only one value per user and per partition (here max 50 pairs per partition). `groupByKey` shuffles all the pairs (here the 2829 pairs), and the sum is done only after. So more data goes on the network and on disk, and one executor must keep all the values of a key in memory. In the Spark UI (Stages tab), the Shuffle Write of the `groupByKey` job is bigger than the one of the `reduceByKey` job.
 
 ### Q10. For which aggregations would `groupByKey` be unavoidable?
 
