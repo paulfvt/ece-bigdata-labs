@@ -30,11 +30,15 @@ I must call `orders_data.cache()` before the first action, for example just afte
 
 ### Q5. Why does `spark.read.csv(multiLine=True)` not have this problem, while `sc.textFile()` does?
 
-_TODO_
+`users_lines.count()` returns 101: 1 header line + 50 users x 2 lines. The address is in quotes and has a line break inside, so each user is cut in two elements. The second element has no uuid, so I cannot know which user it belongs to.
+
+`textFile()` only cuts the file at each new line. It does not know the CSV format. `spark.read.csv(multiLine=True)` reads the CSV syntax: it sees the quotes and knows that a line break inside quotes is part of the value, not the end of the record.
 
 ### Q6. What has to be true of a file format for a line-oriented reader like `textFile()` to be safe to use on it?
 
-_TODO_
+One record must always be on one line: no line break inside a value. Formats like JSON Lines or simple logs are safe. Also the reader should not need to know the structure of the file (quotes, header) to find where a record starts and ends.
+
+Workaround of the lab: keep only lines starting with a UUID, so `users_records.count()` = 50. But this filter drops the second half of each user (end of address, mail, birthdate), so only `uuid`, `username`, `name` and `sex` are usable.
 
 ## Manual parsing of orders
 
