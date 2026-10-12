@@ -94,7 +94,19 @@ Compared with the dbt lab: the singular test `assert_orders_after_user_birth` fa
 
 ### E2. `zip_code` with a Python UDF, a `pandas_udf` and `regexp_extract()`, timed
 
-_TODO_
+Test data: the 50 addresses x 20 000 = 1 000 000 rows, cached. To be sure the column is really computed, I write with the `noop` format (a `count()` could let Catalyst drop the unused column). Best of 3 runs:
+
+| Method | Best time | Runs |
+|---|---|---|
+| `regexp_extract()` (native) | 1.10 s | 1.76, 1.10, 1.18 |
+| `pandas_udf` | 2.87 s | 6.64, 2.87, 2.93 |
+| Python `udf` | 3.53 s | 4.28, 3.53, 3.73 |
+
+The three methods give the same zip codes on the 50 users.
+
+The native function is about 3x faster: it runs inside the JVM and Catalyst can optimize it. With a Python UDF, each row is serialized, sent to a Python worker process, computed and sent back, row by row. The `pandas_udf` sends batches of rows with Apache Arrow, so it is faster than the plain UDF, but only by about 20% here: pandas string functions (`.str.split`, `.str.extract`) still loop in Python. A `pandas_udf` helps more for numeric work. The first run is slower because Spark must start the Python workers and Arrow.
+
+Rule: first use the built-in functions of `pyspark.sql.functions`; if a UDF is really needed, use a `pandas_udf`. One difference to know: when there is no match, `regexp_extract()` returns `""` but my UDFs return `None`.
 
 ### E3. Cache the bronze DataFrames and check the Spark UI
 
