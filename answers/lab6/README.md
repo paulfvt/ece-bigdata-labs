@@ -128,7 +128,19 @@ An RDD is immutable, so I do not change `orders_rdd`: I make a new RDD with `uni
 
 ### E3. Same aggregation with the DataFrame API, compare `.explain()` and `.toDebugString()`
 
-_TODO_
+```python
+orders_df = (spark.read.csv("orders.csv", header=True, inferSchema=True)
+             .withColumnRenamed("user_uuid", "user_id"))
+user_quantity_df = orders_df.groupBy("user_id").sum("quantity")
+user_quantity_df.explain()
+print(user_quantity.toDebugString().decode())
+```
+
+Same totals as the RDD version. The DataFrame version is 2 lines and no parsing function: the CSV reader reads the header and the types (`date` is a timestamp, `quantity` an integer).
+
+`toDebugString()` shows the chain of RDDs I wrote: `HadoopRDD` → my Python functions (`PythonRDD`, two of them cached) → `+-(2)` (the shuffle, start of a new stage) → `ShuffledRDD` from `partitionBy`. Spark only sees black boxes: it reads the full lines and cannot change the order of my steps.
+
+`explain()` shows the plan chosen by Catalyst: `FileScan csv` reads only 2 columns (`ReadSchema: struct<user_uuid,quantity>`), this is column pruning; `HashAggregate partial_sum` sums inside each partition (like `reduceByKey`, but automatic); `Exchange hashpartitioning(user_id, 200)` is the shuffle; then the final `HashAggregate`. The 200 is `spark.sql.shuffle.partitions`; AQE (`AdaptiveSparkPlan`) can reduce it at runtime.
 
 ### E4. Timing with and without `.cache()`, Storage tab of the Spark UI
 
