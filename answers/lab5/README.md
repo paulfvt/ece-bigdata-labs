@@ -16,11 +16,11 @@ I would store the orders in Parquet (columnar, compressed, with types) instead o
 
 ### Q3. The silver models are views. What happens when a view is queried, and when is it preferable to a table?
 
-_TODO_
+A view stores only the query, not the data. Each time the view is queried, DuckDB runs the full query again: here it reads the CSV file on S3, parses it, casts the columns and splits the address. `dbt run` is fast because it only creates the view (`create view ... as (select ...)` in `target/run/`), but every read pays the full cost. A view is better when the model is light, is read rarely, or must always show the latest data of the source without a rebuild. A table is better when the model is read many times (dashboards), when the query is expensive (joins, aggregations, reading remote files), or when the source can disappear or change: the result is computed once, at `dbt run`, and then read fast.
 
 ### Q4. `UUID` values are stored in 16 bytes. How many bytes does the `VARCHAR` representation use?
 
-_TODO_
+The text form of a UUID is 36 characters (32 hex digits + 4 hyphens), for example `bdd640fb-0667-4ad1-9c80-317fa3b1799d`, so 36 bytes in ASCII, more than twice the 16 bytes of the `UUID` type (and DuckDB also adds a 16-byte string header for long strings). The `UUID` type also checks the format and makes comparisons and joins faster. In the Spark lab, Spark has no UUID type, so `order_id` and `user_id` stayed `string`.
 
 ## Data tests
 
