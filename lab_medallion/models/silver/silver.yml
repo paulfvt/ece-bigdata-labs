@@ -29,7 +29,10 @@ models:
         description: Two letters code of the state, territory or military region.
         data_tests:
           - not_null
-          # relationships to ref('states') removed: no `states` model or seed exists in the lab (see exercise 4)
+          - relationships:
+              arguments:
+                to: ref('zip_prefix_ranges')
+                field: state
 
   - name: stg_orders
     description: One row per order, typed and deduplicated.

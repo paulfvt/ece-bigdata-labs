@@ -1,0 +1,14 @@
+seeds:
+  - name: zip_prefix_ranges
+    description: >
+      Valid 3-digit ZIP prefix ranges per US state, territory and military region
+      (approximate, rebuilt from the USPS 3-digit ZIP prefix list). One state can have several ranges.
+    config:
+      column_types:
+        state: varchar
+        prefix_min: integer
+        prefix_max: integer
+    columns:
+      - name: state
+        data_tests:
+          - not_null

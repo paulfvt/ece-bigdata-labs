@@ -86,7 +86,18 @@ The test `assert_orders_after_user_birth` had to change: with a `NULL` birthdate
 
 ### E4. Detect invalid ZIP codes
 
-_TODO_
+The 3 first digits of a US ZIP code depend on the state (for example Kentucky = `400`-`427`, Massachusetts = `010`-`027`), so `KY 01352` is wrong.
+
+- Reference data: `seeds/zip_prefix_ranges.csv`, 68 rows `state, prefix_min, prefix_max` (one state can have several ranges), with the 50 states, DC, the territories (PR, VI, GU, AS, MP, FM, MH, PW) and the military codes (AA, AE, AP). It is documented in `seeds/seeds.yml`.
+- Test: `tests/assert_zip_matches_state.sql` returns the users whose `left(zip_code, 3)` is in no range of their state, with `severity='warn'`. I also put back the `relationships` test from `stg_users.state` to `ref('zip_prefix_ranges')`, removed earlier because the `states` reference did not exist.
+- Result: `relationships` PASS (all state codes are known), `assert_zip_matches_state` **WARN 49**: only 1 user of 50 has a ZIP code that matches the state (`PA 18641`, by chance). Faker draws ZIP codes at random, without looking at the state.
+
+Answers to the questions:
+
+- **Where should the reference data come from?** From the official source, USPS (the US postal service), which publishes the list of 3-digit ZIP prefixes. My ranges are rebuilt from this list and are approximate (some special prefixes can be missing); in production I would download the official file and keep its version and date.
+- **Should it be stored as a dbt seed?** Yes here: it is small (68 rows), changes rarely, and is versioned in Git with the code, so a change is reviewed and the test is reproducible. For big or often-updated reference data, a seed is not good: it should be ingested like a normal source (bronze), with its own pipeline.
+- **Should the validation happen in the silver layer?** Yes: silver is where the data is cleaned and checked, and gold models (sales per region) depend on correct states. But as with the birthdates, I do not change bronze. I keep the rows and report the problem (warning), or I could add a `zip_is_valid` flag column, because the error comes from the source.
+- **What happens when the reference data changes?** USPS sometimes creates or moves prefixes. If the seed is old, valid addresses can fail the test, or wrong ones can pass. The seed must be updated (new commit, `dbt seed`), and since tests and models are rebuilt from bronze, the next `dbt build` checks all the history again with the new reference. It is good to record the date or version of the reference in the seed description.
 
 ### E5. Materialization experiment
 
