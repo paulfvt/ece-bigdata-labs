@@ -1,4 +1,4 @@
-# Lab 2 – Object storage with S3: answers
+# Lab 3 – Object storage with S3: answers
 
 ## Q1. Why are the credentials in a Secret and not in the ConfigMap?
 
