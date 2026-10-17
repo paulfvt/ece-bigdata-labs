@@ -4,35 +4,42 @@ Setup: Onyxia `vscode-pyspark`, Spark 4.1.1, Scala 2.13, Iceberg `iceberg-spark-
 
 ## Create an Iceberg table
 
-_TODO_
+The table `lab.silver.orders` already exists (created in lab 7), so I did not run `createOrReplace()` again: it would replace my history. `SHOW TABLES IN lab.silver` shows `orders` and `users`. Query through the catalog: 2830 orders, quantity 8618 (2829 orders from the silver layer + 1 order appended in lab 7 exercise 4). Unlike a Parquet directory, `lab.silver.orders` is a table known by the catalog: I use its name, not a path.
 
 ## Inspect the files
 
 ### Q1. Which files contain the actual rows?
 
-_TODO_
+The Parquet files in `data/`: `00000-69-...parquet` (84 KB, 2829 rows, written when the table was created) and `00003-203-...parquet` (1.9 KB, 1 row, written by the append).
 
 ### Q2. Which files describe the table?
 
-_TODO_
+The files in `metadata/`:
+
+- `version-hint.text`: the number of the current version (`2`), used by the Hadoop catalog;
+- `v1.metadata.json`, `v2.metadata.json`: one per commit, with the schema, the partition spec, the properties, the list of snapshots and the current snapshot id;
+- `snap-<snapshot id>-....avro`: the manifest list of each snapshot (2 files);
+- `<uuid>-m0.avro`: the manifests, which list the data files with their row count and min/max/null stats per column (2 files, one per write).
+
+A reader follows the chain: `version-hint.text` → `v2.metadata.json` → manifest list → manifests → data files.
 
 ### Q3. Why does an Iceberg table need more than the Parquet files?
 
-_TODO_
+Parquet files are only data, with a schema per file. They do not say which files are part of the table now, which version is the current one, or what changed. Without metadata a reader must list the directory, and it can see half-written files during a write. Iceberg adds a list of the exact files of each version (snapshots), atomic commits, the history (time travel), one schema for the whole table that can evolve, and stats per file to skip files when reading.
 
 ## Explore Iceberg metadata
 
 ### Q4. How many snapshots does the table currently have?
 
-_TODO_
+2 snapshots: `4870172577030688146` (`overwrite`, 2829 rows added, total 2829, the creation in lab 7) and `7610126210941041453` (`append`, 1 row added, total 2830), whose `parent_id` is the first one.
 
 ### Q5. How many data files belong to the current table?
 
-_TODO_
+2 data files: one with 2829 rows (84 055 bytes) and one with 1 row (1 923 bytes). The `files` table only lists the files of the current snapshot.
 
 ### Q6. What information does the `snapshots` table contain that the Parquet files do not?
 
-_TODO_
+For each version of the table: the snapshot id, the parent snapshot (the history chain), the commit time, the operation (`overwrite`, `append`...) and a summary (rows and files added or deleted, total rows, total size), and the manifest list. A Parquet file only knows its own rows and schema: it does not know which version of the table it belongs to, when it was added, or what other files form the table.
 
 ## Create a second snapshot
 
