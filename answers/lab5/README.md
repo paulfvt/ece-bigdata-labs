@@ -101,4 +101,21 @@ Answers to the questions:
 
 ### E5. Materialization experiment
 
-_TODO_
+I changed `+materialized: view` to `table` in `dbt_project.yml`, rebuilt from an empty database, and compared with the view version:
+
+| | View | Table |
+|---|---|---|
+| Object in DuckDB | `VIEW` | `BASE TABLE` (`OK created sql table model`) |
+| Size of `lab_medallion.duckdb` | 268 KB | 780 KB |
+| `SELECT count(*), sum(quantity) FROM stg_orders` | 0.180 s | 0.005 s (about 36x faster) |
+| Result | 2829 orders, 8615 items | same |
+
+- **Where is the data stored?** View: no data, only the query; the data stays in the CSV files on S3. Table: the result is stored in the DuckDB file.
+- **When is the transformation executed?** View: at every query on the view. Table: once, at `dbt build`.
+- **What happens when the underlying CSV changes?** View: the readers see the new data at once. Table: the readers see the old snapshot until the next `dbt build`.
+- **Which approach requires more storage?** The table (780 KB vs 268 KB here); the view only stores the SQL.
+- **Which approach avoids re-reading the source files for every query?** The table: the view reads and parses the CSV from S3 each time, so it is slower.
+
+So a view is good for light models read rarely, or when data must always be fresh; a table is better for models read often (dashboards) or expensive to compute. I restored `+materialized: view` at the end.
+
+Note: after `rm -f lab_medallion.duckdb`, `dbt build --select silver` gave 2 errors, because the seed `zip_prefix_ranges` (exercise 4) is not in the `silver` selection and was not loaded in the new database. `dbt build` without selector loads the seed first: `PASS=23 WARN=1 ERROR=0`.
