@@ -73,15 +73,17 @@ The old version could not be read anymore: `VERSION AS OF` on this snapshot woul
 
 ### Q13. Did the existing Parquet files have to be rewritten?
 
-_TODO_
+No. `ALTER TABLE lab.silver.orders ADD COLUMN source STRING` only wrote a new metadata file (`v4.metadata.json`): no data file was rewritten and no snapshot was created, because the data did not change. The 3 old Parquet files have no `source` column; when Spark reads them, Iceberg returns `NULL` for this column (2833 rows with `source = NULL`). The new row written with `INSERT` (`v5.metadata.json`, new snapshot) is in a 4th file that has the column (`source = 'spark'`).
+
+Change from the lab: the `INSERT` of the lab copies an existing row with the same `order_id`, which makes a duplicate in a table with one row per order. I used `uuid()` for the new row: 2834 rows and 2834 distinct `order_id`.
 
 ### Q14. Where is the new schema recorded?
 
-_TODO_
+In the table metadata file, `vN.metadata.json`. `v5.metadata.json` keeps the list of all the schemas and the current one: schema 0 = `order_id, user_id, ordered_at, quantity, product`, schema 1 = the same + `source`, and `current-schema-id: 1`. Each snapshot also records the schema id used when it was written. Iceberg identifies columns by a field id, not by name or position, so a column can be added, renamed or reordered without breaking the old files.
 
 ### Q15. Why is schema evolution a table-level operation rather than simply changing a Parquet file?
 
-_TODO_
+Because a table is many files written at different times, and all of them must be read with one schema. If I only changed one Parquet file, the other files would keep the old schema, and readers would see different schemas, or fail. Iceberg changes the schema once, in the table metadata, with an atomic commit, and maps the old files to the new schema when reading (missing columns = `NULL`, matched by field id). So adding a column is instant, the old files are not rewritten, and every reader and engine sees the same schema at the same time. It also keeps the old schemas, so time travel reads old snapshots with their own schema.
 
 ## Compare Iceberg with Parquet
 
