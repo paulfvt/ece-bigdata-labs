@@ -111,24 +111,50 @@ With the Hadoop catalog, the pointer to the current version is a file in the buc
 
 ### E1. Create `lab.silver.users` as an Iceberg table
 
-_TODO_
+`lab.silver.users` was already created in lab 7 (`stg_users.writeTo("lab.silver.users").createOrReplace()`), so I checked it instead of replacing it (that would replace its history): `SHOW TABLES IN lab.silver` lists it, 10 columns (`user_id, username, name, sex, email, birthdate, street, city, state, zip_code`), 50 users, 1 snapshot (`overwrite`, 50 rows).
 
 ### E2. Append a new batch of users and inspect the snapshots
 
-_TODO_
+```python
+new_users = (users.limit(3)
+             .withColumn("user_id", F.expr("uuid()"))
+             .withColumn("username", F.concat(F.col("username"), F.lit("_batch2"))))
+new_users.writeTo("lab.silver.users").append()
+```
+
+New `user_id` and `username` so the table keeps one row per user. Snapshots: `overwrite` 50 (lab 7) → `append` +3 → total 53. The append wrote one new data file and a new snapshot; the first file is not changed.
 
 ### E3. Query the table before and after the append using time travel
 
-_TODO_
+With the first and the last snapshot ids: `VERSION AS OF <first>` → 50 users, `VERSION AS OF <after the append>` → 53 users. `SELECT username ... VERSION AS OF <after> EXCEPT SELECT username ... VERSION AS OF <before>` returns the 3 new usernames ending with `_batch2`. Time travel reads each version from its own list of files, so both versions can be read at the same time without any copy.
 
 ### E4. Add a `country` column and write new data using the evolved schema
 
-_TODO_
+```python
+spark.sql("ALTER TABLE lab.silver.users ADD COLUMN country STRING")
+users = spark.table("lab.silver.users")   # read again AFTER the ALTER
+(users.limit(1)
+     .withColumn("user_id", F.expr("uuid()"))
+     .withColumn("username", F.lit("newuser_country"))
+     .withColumn("country", F.lit("US"))
+     .writeTo("lab.silver.users").append())
+```
+
+Result: 11 columns, 53 users with `country = NULL` (old files, not rewritten) and 1 with `US`; 54 users, 54 distinct ids; snapshots 50 → 53 → 54. The `ALTER TABLE` made no snapshot, only a new metadata file.
+
+First try failed with `INCOMPATIBLE_TABLE_CHANGE_AFTER_ANALYSIS.COLUMNS_MISMATCH`: my `users` DataFrame was created before the `ALTER TABLE`, so its plan still had 10 columns. Spark 4 checks that the plan matches the table at write time and refuses to write with an old schema. Reading the table again (`spark.table(...)`) after the schema change fixed it, and nothing was written by the failed try (still 53 rows).
 
 ### E5. Compare the S3 layout of the users and orders tables
 
-_TODO_
+Both tables have the same layout under `warehouse/silver/<table>/`: `data/` with the Parquet files, and `metadata/` with `vN.metadata.json`, one manifest list `snap-<id>-*.avro` per snapshot, the manifests `*-m0.avro`, and `version-hint.text`.
+
+- `users`: 3 data files (50 + 3 + 1 rows), 3 snapshots, metadata `v1` to `v4` (create, append, `ALTER TABLE`, append).
+- `orders`: 4 data files (2829 + 1 + 3 + 1 rows), 4 snapshots, metadata `v1` to `v5`.
+
+The number of data files and snapshots follows the number of writes, not the size of the table: each append adds a small file. With many small appends this makes many small files, which slows down reads; Iceberg has maintenance procedures for this (`rewrite_data_files` to compact the files, `expire_snapshots` to remove old snapshots).
 
 ### E6. Explain the difference between Parquet, Iceberg, and an Iceberg catalog
 
-_TODO_
+- **Parquet** is a file format: a columnar, compressed file with its own schema and stats. A directory of Parquet files is just files: no list of which files form the table, no versions, no transactions; a reader lists the directory, and a write in progress can be seen half done.
+- **Iceberg** is a table format on top of data files (usually Parquet): metadata files (`vN.metadata.json`, manifest lists, manifests) list exactly which files form each version of the table (snapshot), with one schema for the whole table. This gives atomic commits, time travel, schema evolution without rewriting files, and file stats to skip data.
+- **An Iceberg catalog** keeps, for each table name (`lab.silver.orders`), the pointer to its current metadata file, and changes it atomically at each commit. This is what makes commits safe when several jobs or engines write the same table, and lets every engine (Spark, Trino, DuckDB, Flink) find the tables by name. Here the catalog `lab` is of type `hadoop`: the pointer is `version-hint.text` in the bucket, simple but without real locking; a REST catalog (Polaris, Nessie, Glue...) is needed for concurrent writers.
