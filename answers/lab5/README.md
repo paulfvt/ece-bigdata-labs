@@ -24,17 +24,29 @@ The text form of a UUID is 36 characters (32 hex digits + 4 hyphens), for exampl
 
 ## Data tests
 
-_TODO_
+Generic tests are declared in `models/silver/silver.yml`: `unique` + `not_null` on the keys, `accepted_values` on `sex`, `quantity` (`quote: false`, numbers) and `product`, and `relationships` from `stg_orders.user_id` to `stg_users.user_id`. Each test compiles to a query that returns the bad rows: 0 rows = PASS. Result: `PASS=13` (12 generic tests + the singular test `assert_orders_have_users`).
+
+`assert_orders_have_users` (`LEFT JOIN ... WHERE u.user_id IS NULL`) checks the same thing as the generic `relationships` test.
+
+Change from the lab: I removed the `relationships` test from `state` to `ref('states')`, because no `states` model or seed exists in the lab ("we will not use seeds"), so dbt would fail at compile time. State validation is done in exercise 4.
+
+With `--store-failures`, dbt writes the bad rows of each test in the `main_dbt_test__audit` schema (14 tables, one per test). With my data all generic tests pass, so I do not get the `donuts` / `dring` example of the lab.
 
 ## Singular tests
 
 ### Q5. Which strategy would you choose for a dashboard displaying the age of the customers? For a dashboard displaying the sales per region?
 
-_TODO_
+The singular test `assert_orders_after_user_birth` fails with 288 orders. They come from 5 users: `ronaldstephens` (79), `cgrimes` (63), `dayderek` (52), `nicolejohnson` (49), `charleslandry` (45), born between 2022 and 2026 while their orders are in 2020 (Faker makes birthdates relative to today). I set `severity='warn'`: the pipeline goes on, but the problem is still reported on each run.
+
+For a dashboard about the **age** of customers, the bad birthdates directly give a wrong result (negative or very small ages). I would replace them with `NULL` in silver and add a flag `birthdate_is_valid`, so these users are excluded from age statistics but kept for everything else, and ask the data producer to fix the generator.
+
+For a dashboard about **sales per region**, the birthdate is not used at all. The orders and the state are correct, so I keep all the rows and just monitor the issue with the warning. Rejecting these users would remove 288 real orders and give wrong sales numbers.
 
 ### Q6. The addresses associate states with random zip codes, `KY 01352` for example. Which test would detect it, and which reference data would it require?
 
-_TODO_
+A test that checks that each zip code belongs to its state, for example a singular test that joins `stg_users` with a reference table and returns the users whose `zip_code` is not in the range of their `state`. `KY 01352` would fail because zip codes starting with `0` belong to the north-east (Massachusetts, Connecticut...), while Kentucky zip codes are `40000`-`42799`.
+
+It needs reference data: the list of US states, territories and military codes (AA, AE, AP), with the valid zip code ranges or the 3-digit zip prefixes of each one. The official source is USPS. It can be stored in the project as a dbt seed (`seeds/zip_ranges.csv`), because it is small and changes rarely, and versioned in Git. This is exercise 4.
 
 ## Export the silver layer to Parquet
 
