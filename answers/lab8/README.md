@@ -140,7 +140,7 @@ users = spark.table("lab.silver.users")   # read again AFTER the ALTER
      .writeTo("lab.silver.users").append())
 ```
 
-Result: 11 columns, 53 users with `country = NULL` (old files, not rewritten) and 1 with `US`; 54 users, 54 distinct ids; snapshots 50 → 53 → 54. The `ALTER TABLE` made no snapshot, only a new metadata file.
+Result: 11 columns, 53 users with `country = NULL` (old files, not rewritten) and 1 with `US`; 54 users, 54 distinct ids; snapshot row totals 50 → 53 → 54 (3 snapshots). The `ALTER TABLE` made no snapshot, only a new metadata file.
 
 First try failed with `INCOMPATIBLE_TABLE_CHANGE_AFTER_ANALYSIS.COLUMNS_MISMATCH`: my `users` DataFrame was created before the `ALTER TABLE`, so its plan still had 10 columns. Spark 4 checks that the plan matches the table at write time and refuses to write with an old schema. Reading the table again (`spark.table(...)`) after the schema change fixed it, and nothing was written by the failed try (still 53 rows).
 

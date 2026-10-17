@@ -16,6 +16,7 @@ All the labs use the same Python project. Each lab adds something to it.
 - `lab_medallion/`: the dbt project of lab 5 (models, tests, seed)
 - `answers/lab6/`: answers of the RDD lab
 - `answers/lab7/`: answers of the Spark DataFrames lab
+- `answers/lab8/`: answers of the Iceberg lab
 - `warehouse/silver/*/metadata/`: metadata of the Iceberg tables of lab 7 (the data files are not in Git)
 
 ## Setup
@@ -60,3 +61,4 @@ duckdb analytics.duckdb -init init.sql -c ".read answers/lab4/queries.sql"
 - Lab 5: bronze to silver with dbt and DuckDB, data tests, seeds and lineage
 - Lab 6: Spark RDD API (partitions, lazy evaluation, reduceByKey vs groupByKey, joins)
 - Lab 7: bronze to silver with Spark DataFrames, Spark SQL, Parquet and Iceberg
+- Lab 8: explore Iceberg tables with Spark (metadata, snapshots, time travel, schema evolution)
