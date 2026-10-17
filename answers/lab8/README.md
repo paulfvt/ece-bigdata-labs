@@ -45,15 +45,15 @@ For each version of the table: the snapshot id, the parent snapshot (the history
 
 ### Q7. How many snapshots are there now?
 
-_TODO_
+3 snapshots: `4870172577030688146` (overwrite, 2829), `7610126210941041453` (append 1 → 2830) and the new `1310469305448366123` (append 3 → 2833), each with the previous one as `parent_id`. The 3 new orders are copies of existing rows with a new `order_id` (`uuid()`), so the table keeps one row per order: 2833 rows and 2833 distinct ids.
 
 ### Q8. Did the original Parquet files disappear?
 
-_TODO_
+No. The append wrote one new data file (`00000-5-...parquet`, 3 rows) next to the two old ones (2829 rows and 1 row), which are not changed. The new snapshot lists the 3 files; the old snapshots still list only their own files. Iceberg never modifies a data file: it only adds files and new metadata.
 
 ### Q9. Why does Iceberg create a new snapshot instead of simply replacing the table?
 
-_TODO_
+Because a commit must be atomic and safe for readers. The new snapshot is written next to the old one, then one pointer moves to it: a reader that started before the commit keeps reading the old snapshot, and a new reader sees the new one complete, never a half-written table. Keeping the old snapshots also gives the history: I can read an old version (time travel), roll back after a bad write, or see what changed. And it is cheap: the new snapshot reuses the old data files and only adds the new ones, it does not copy the table.
 
 ## Time travel
 
