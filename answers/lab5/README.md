@@ -74,7 +74,15 @@ All tests PASS.
 
 ### E3. Clean invalid birthdates
 
-_TODO_
+`stg_users` now reads `{{ ref('stg_orders') }}` to get the first order date of each user (`min(ordered_at)` cast to date). New columns:
+
+- `birthdate_is_valid`: `coalesce(birthdate_raw <= first_order_date, true)`. A user with no order cannot be checked, so he is kept as valid.
+- `birthdate`: the original value if valid, else `NULL`.
+- `birthdate_raw`: the original value, to analyse the errors without going back to bronze.
+
+Result: 45 valid users, 5 not valid (`cgrimes`, `charleslandry`, `dayderek`, `nicolejohnson`, `ronaldstephens`, born between 2022 and 2026), the same 5 users as in the Spark lab. The lineage of `stg_users` now includes `stg_orders` (`dbt ls --select +stg_users`), and dbt builds `stg_orders` first.
+
+The test `assert_orders_after_user_birth` had to change: with a `NULL` birthdate, `ordered_at < birthdate` is `NULL`, so the old test would pass without proving anything. The new test checks that no birthdate kept in silver (`birthdate is not null`) is after an order of the user, and I removed `severity='warn'`: if it fails now, my cleaning is wrong, so it must stop the pipeline. Result: `PASS=20 WARN=0 ERROR=0`.
 
 ### E4. Detect invalid ZIP codes
 
