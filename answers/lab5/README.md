@@ -50,17 +50,27 @@ It needs reference data: the list of US states, territories and military codes (
 
 ## Export the silver layer to Parquet
 
-_TODO_
+`dbt build --select silver` on an empty database: `PASS=15 WARN=1 ERROR=0 TOTAL=16` (2 models + 14 tests, run in the order of the graph). `dbt ls --select +stg_orders` gives `stg_orders` and `source:bronze.orders`: the lineage comes from `source()` and `ref()`. `dbt docs generate --static` writes the documentation website with the lineage graph in `target/static_index.html`.
+
+Export to S3 with DuckDB: `COPY (SELECT * FROM main_silver.stg_users) TO 's3://.../silver/dbt/users.parquet' (FORMAT parquet)`, and the same for `stg_orders`. Sizes: `users.parquet` 7 KB, `orders.parquet` 73 KB (vs 331 KB for the bronze CSV).
+
+Exercise: `stg_orders` (view) and `orders.parquet` give the same result: 2829 rows each, and `EXCEPT ALL` in both directions returns 0 rows.
+
+The view is a logical materialization: it stores the query, so each read runs the transformation again and reads the CSV on S3. The Parquet file is a physical materialization: it stores the result, the transformation ran once during the export, and the next reads are fast columnar reads. But the Parquet file does not change if the bronze CSV changes, so it must be exported again.
 
 ## Exercises
 
 ### E1. Add a cleaned column `username_normalized`
 
-_TODO_
+In `models/silver/stg_users.sql`: `nullif(lower(trim(username)), '') as username_normalized`. `trim` removes the spaces, `lower` puts the text in lowercase, and `nullif(..., '')` turns an empty string into `NULL`: a username with only spaces would give `""`, which `not_null` does not detect. The column is documented in `silver.yml` and tested with `not_null` + `unique`: two usernames that differ only by case would be detected. Result: both tests PASS. With this data `username_normalized` = `username`, because Faker already makes lowercase usernames, but the column protects against other sources.
 
 ### E2. Improve order validation
 
-_TODO_
+- `product` in the expected list: generic test `accepted_values` (already in `silver.yml`).
+- every `user_id` exists in `stg_users`: generic test `relationships` to `ref('stg_users')`, and the singular test `tests/assert_orders_have_users.sql` (`LEFT JOIN ... WHERE u.user_id IS NULL`).
+- `quantity` is positive: dbt has no built-in test for this, so I wrote a custom generic test `tests/generic/positive.sql` (`{% test positive(model, column_name) %}` returns the rows where the value is `NULL` or `<= 0`) and added `- positive` to `quantity`. It is reusable on any numeric column. `accepted_values` 1 to 5 is also kept, but it checks the generator, not the business rule.
+
+All tests PASS.
 
 ### E3. Clean invalid birthdates
 
