@@ -59,15 +59,15 @@ Because a commit must be atomic and safe for readers. The new snapshot is writte
 
 ### Q10. What does time travel read?
 
-_TODO_
+Time travel reads the table as it was at an old snapshot. Iceberg opens the metadata of that snapshot (its manifest list and manifests) and reads only the data files listed there. Results with `VERSION AS OF <snapshot_id>`: 2829 rows (first snapshot), 2830 (second), 2833 (third = current). With `TIMESTAMP AS OF '2026-10-13 00:00:00'`, Iceberg takes the last snapshot committed before this date: 2830 rows. `lab.silver.orders.files VERSION AS OF <first snapshot>` shows that the first version only uses one file, the one with 2829 rows.
 
 ### Q11. Why can Iceberg access an older version without making a complete copy of the table?
 
-_TODO_
+Because snapshots share the data files. A new snapshot does not copy the table: it reuses the old files and only lists the new ones in its manifests. The data files are never changed, so the files of an old snapshot are still there, and the old snapshot is only a few small metadata files (here about 4 KB of manifest list + 7 KB of manifest) pointing to them. Reading an old version only means following another pointer.
 
 ### Q12. What would happen if the old snapshot's metadata and data files were physically deleted?
 
-_TODO_
+The old version could not be read anymore: `VERSION AS OF` on this snapshot would fail with a "file not found" error, or the snapshot would not exist anymore in the metadata. If only data files were deleted by hand, the metadata would point to missing files and even the current table could break, when these files are still used by the current snapshot (here the 2829-row file is used by all 3 snapshots). This is why old versions must be removed with Iceberg itself: `expire_snapshots` removes old snapshots and deletes only the files that no other snapshot uses, and `remove_orphan_files` cleans the files not listed anywhere. After that, time travel is only possible for the snapshots that are kept.
 
 ## Schema evolution
 
