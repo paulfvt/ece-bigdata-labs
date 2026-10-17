@@ -64,7 +64,45 @@ A catalog service (REST catalog, Apache Polaris, Nessie, Hive Metastore, AWS Glu
 
 ## Compare with the dbt lab
 
-_Pending: the dbt lab (module 05) is not done yet, so `silver/dbt/` does not exist. This section will be done after it._
+Done after the dbt lab (lab 5). dbt output: `silver/dbt/users.parquet` and `silver/dbt/orders.parquet` (the lab text uses `stg_*.parquet` and paths without `dbt/` / `spark/`, I used the real paths).
+
+| | dbt + DuckDB | Spark |
+|---|---|---|
+| Orders | 2829, quantity 8615 | 2830, quantity 8618 |
+| Users | 50 | 50 |
+
+The difference is one order: `00000000-0000-0000-0000-00000000e004` (quantity 3), the order I appended to the Spark Parquet directory in exercise 4. Without it, both engines give the same 2829 orders and 8615 items.
+
+### Q11. What differs between the two schemas? Spark has no `UUID` type: what did you do about it, and what is the consequence for the consumers of the silver layer?
+
+```text
+dbt:   order_id uuid,    user_id uuid,    ordered_at timestamp with time zone, quantity integer, product varchar
+Spark: order_id varchar, user_id varchar, ordered_at timestamp,                quantity integer, product varchar
+```
+
+Spark has no UUID type, so I cast the ids to `string`. Consequences: the ids take 36 bytes instead of 16, the format is not checked, and a consumer that joins the two outputs must cast one side (`cast(order_id as varchar)`), as I did to find the extra order. `ordered_at` is also different: Spark writes timestamps in Parquet as INT96 by default, which DuckDB reads as a `timestamp` without time zone; the values are UTC but the schema does not say it anymore. The same silver layer should have one schema contract, whatever the engine.
+
+### Q12. Compare the output layout. Which one is easier for a consumer to read? Which one scales?
+
+dbt/DuckDB writes one object per model (`orders.parquet`, 73 KB). Spark writes a directory with one `part-` file per partition, plus `_SUCCESS` (`orders.parquet/part-00000-...`, 139 KB). One file is easier to read: one path, no glob (`*.parquet`), any tool can open it. The directory scales: each task writes its file in parallel and a reader can read the files in parallel, while one single file must be written by one process.
+
+### Q13. The dbt lab validates the silver layer with tests. What did this lab use instead, and what would you need to write to get the same guarantees?
+
+The Spark lab only uses a few `assert` on row counts (bronze vs silver, Parquet vs DataFrame). They do not check uniqueness, nulls, accepted values or foreign keys, and they stop the script with a Python error, without a report. To get the same guarantees I would need to write each check as a query that returns the bad rows (for example `groupBy("order_id").count().filter("count > 1")` for `unique`, a left anti join for `relationships`), run them after each build, and stop the next steps on failure. Or use a data quality tool (Great Expectations, Soda) or run dbt with the `dbt-spark` adapter.
+
+### Q14. `ref()` and `source()` give dbt the dependency graph of the models. What plays this role in the notebook?
+
+The order of the cells and the Python variables (`stg_orders` is built from `orders_typed`, built from `orders_bronze`). The dependencies are only implicit: nothing checks them, a cell run out of order uses old variables, and there is no lineage graph or documentation. Spark builds a DAG, but only inside one query plan, not between the datasets of the project.
+
+### Q15. Compare the time to build the silver layer with `dbt build` and with the cells of this lab. Why are these numbers not directly comparable?
+
+`dbt build` of the whole project (seed, 2 views, 21 tests) took about 4.6 s. For Spark I did not measure the full silver build in one number. They are not comparable: dbt only creates views (no data is written; the work happens later at query time), while Spark computes and writes Parquet and Iceberg files; the Spark time includes starting the JVM, the session and downloading the Iceberg jar; the dbt time includes the tests; and with 2829 rows both times are mostly fixed costs, not real processing.
+
+### Q16. Would you choose dbt with DuckDB or Spark for: a daily batch of 10 GB, a daily batch of 10 TB, a team of analysts who only know SQL?
+
+- **10 GB per day**: dbt + DuckDB. It fits on one machine, it is simple, cheap and fast, and it has tests and lineage.
+- **10 TB per day**: Spark (or a distributed warehouse). One machine cannot process this in time; it needs a cluster.
+- **Analysts who only know SQL**: dbt, because everything is SQL with tests and docs. If the data is big, dbt can still use Spark or a warehouse as the engine (`dbt-spark`, `dbt-databricks`).
 
 ## Exercises
 
