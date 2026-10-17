@@ -89,23 +89,23 @@ Because a table is many files written at different times, and all of them must b
 
 ### Q16. Which one is simply a collection of Parquet files?
 
-_TODO_
+`silver/spark/orders.parquet/`: it only has `part-...snappy.parquet` files (one per partition written, plus the extra file of the lab 7 append) and a `_SUCCESS` marker. Nothing says which files form the table or which version is current: a reader lists the directory and reads everything.
 
 ### Q17. Which one has table metadata and snapshots?
 
-_TODO_
+`warehouse/silver/orders/`: the Parquet files in `data/` plus `metadata/` with `v1` to `v5.metadata.json` (schema, snapshots, current snapshot id), one manifest list per snapshot (`snap-*.avro`), the manifests (`*-m0.avro`, list of data files with stats), and `version-hint.text`. The table has 4 snapshots and 2 schemas.
 
 ### Q18. How would you safely replace a Parquet directory while another query is reading it?
 
-_TODO_
+Never overwrite the files in place. Write the new version in a new directory (for example `orders.parquet/v=2026-10-17/`), check it, then switch the readers to it in one step: change a pointer that readers use (a view, a symlink-like "current" path stored in a small file, or a Hive Metastore table location with `ALTER TABLE ... SET LOCATION`). The old directory is deleted only later, when no query uses it. Even so, there is no real transaction: this is exactly what Iceberg does for us.
 
 ### Q19. How does Iceberg make the table state visible atomically?
 
-_TODO_
+A writer first writes all the new data files and the new metadata (manifests, manifest list, `vN+1.metadata.json`). Readers do not see these files yet, because no metadata points to them. Then the commit changes one single pointer to the new metadata file (here `version-hint.text`; with a catalog service, an atomic update in the catalog). Before this switch readers see the old version, after it they see the new one, never a mix. If the commit fails, the new files are just orphans and the table is unchanged.
 
 ### Q20. Why is a catalog needed once several engines need to share the same Iceberg table?
 
-_TODO_
+With the Hadoop catalog, the pointer to the current version is a file in the bucket, and object storage has no atomic "compare and swap": two engines (Spark, Trino, DuckDB, Flink) that commit at the same time can overwrite each other's commit. A catalog service (REST catalog, Apache Polaris, Nessie, Hive Metastore, AWS Glue) keeps the pointer of each table and updates it atomically: a conflicting commit fails and is retried. It is also the one place where all engines find the tables by name (`lab.silver.orders`) instead of a path, with the same view of the current version, and where access rights are managed.
 
 ## Exercises
 
