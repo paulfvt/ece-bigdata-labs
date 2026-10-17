@@ -54,8 +54,8 @@ duckdb analytics.duckdb -init init.sql -c ".read answers/lab4/queries.sql"
 
 ## Labs
 
-- Lab uv: Python project and dataset generator
-- Lab 3: object storage with S3, upload of the bronze layer
+- Lab 3a: Python project with uv and dataset generator
+- Lab 3b: object storage with S3, upload of the bronze layer
 - Lab 4: SQL analytics with DuckDB, CSV vs. Parquet
 - Lab 5: bronze to silver with dbt and DuckDB, data tests, seeds and lineage
 - Lab 6: Spark RDD API (partitions, lazy evaluation, reduceByKey vs groupByKey, joins)
