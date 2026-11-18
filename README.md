@@ -17,6 +17,8 @@ All the labs use the same Python project. Each lab adds something to it.
 - `answers/lab6/`: answers of the RDD lab
 - `answers/lab7/`: answers of the Spark DataFrames lab
 - `answers/lab8/`: answers of the Iceberg lab
+- `answers/lab9/`: answers of the Polaris lab
+- `polaris/deployment/`: Helm chart that deploys Apache Polaris and PostgreSQL (lab 9), with requests reduced to fit the namespace quota
 - `warehouse/silver/*/metadata/`: metadata of the Iceberg tables of lab 7 (the data files are not in Git)
 
 ## Setup
@@ -62,3 +64,4 @@ duckdb analytics.duckdb -init init.sql -c ".read answers/lab4/queries.sql"
 - Lab 6: Spark RDD API (partitions, lazy evaluation, reduceByKey vs groupByKey, joins)
 - Lab 7: bronze to silver with Spark DataFrames, Spark SQL, Parquet and Iceberg
 - Lab 8: explore Iceberg tables with Spark (metadata, snapshots, time travel, schema evolution)
+- Lab 9: govern Iceberg tables with Apache Polaris (REST catalog, register_table, RBAC with principals and roles)
